@@ -1,207 +1,130 @@
-<<<<<<< HEAD
-# RideX: Smart Transportation System Using Graphs
+# 🚖 RideX: Next-Gen Smart Transportation System
 
-A lightweight ride-hailing simulation system that models a city using graph theory. Intersections are nodes, roads are weighted edges, and the system demonstrates routing, driver allocation, road optimization, and workflow scheduling in a realistic scenario.
+> **A high-performance ride-hailing simulation engine powered by advanced Graph Algorithms and a Hybrid Python/C++ Architecture.**
 
-## 🚀 Features
+RideX is a state-of-the-art transportation management system that models real-world city logistics. By treating the city as a weighted graph—where intersections are nodes and roads are edges—RideX efficiently handles complex tasks like route optimization, driver allocation, and infrastructure planning.
 
-- **City Representation**: Weighted graph with intersections (nodes) and roads (edges)
-- **Shortest Path Routing**: Dijkstra's algorithm for finding optimal routes
-- **Driver Assignment**: Nearest driver allocation using graph algorithms
-- **Road Optimization**: Minimum Spanning Tree (Prim's and Kruskal's algorithms)
-- **Workflow Scheduling**: Topological sort for ride workflow tasks
-- **Fare Calculation**: Distance-based pricing with detailed breakdown
-- **Interactive Map**: MapLibre GL JS visualization with Lahore, Pakistan map
-- **Precise Location Selection**: Click on map or use dropdowns
-- **Car Animation**: Premium car icon animates from pickup to dropoff
-- **Professional UI**: Poppins font, SVG icons, modern design
-
-## 📋 Prerequisites
-
-- Python 3.7 or higher
-- pip (Python package manager)
-- Modern web browser (Chrome, Firefox, Edge, Safari)
-
-## 🛠️ Installation
-
-1. **Navigate to the project directory:**
-   ```bash
-   cd ridex_backend
-   ```
-
-2. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-   This will install:
-   - Flask (web framework)
-   - Flask-CORS (CORS support)
-
-## ▶️ How to Run
-
-1. **Start the Flask server:**
-   ```bash
-   python app.py
-   ```
-
-2. **Open your browser:**
-   Navigate to: `http://localhost:5000`
-
-3. **You're ready to use RideX!**
-
-## 📖 Usage Guide
-
-### Request a Ride
-
-1. **Select Pickup Location:**
-   - Use the dropdown to select pickup location
-   - OR click the blue "📍 Map" button and click on the map
-
-2. **Select Dropoff Location:**
-   - Use the dropdown to select dropoff location
-   - OR click the red "📍 Map" button and click on the map
-
-3. **Click "Request Ride"**
-
-4. **Review Fare Calculation:**
-   - See detailed fare breakdown (Base Fare + Distance × Rate)
-   - Review pickup and dropoff locations
-   - Check total fare in PKR
-
-5. **Confirm Ride:**
-   - Click "✓ Confirm & Start Ride"
-   - Watch the premium car animate from pickup to dropoff
-
-6. **Complete Ride:**
-   - Click "✓ Complete Ride" when done
-   - Request a new ride if needed
-
-### Road Optimization (MST)
-
-- Click **"Prim's MST"** to see optimized road network using Prim's algorithm
-- Click **"Kruskal's MST"** to see optimized road network using Kruskal's algorithm
-- Visualize minimum spanning tree on the map
-
-### Workflow Schedule
-
-- Click **"Show Workflow Schedule"** to see the topological sort order
-- View the proper sequence: Verify → Assign → Route → Fare → Start → End → Receipt
-
-### Map Controls (Hamburger Menu)
-
-Click the hamburger menu (☰) in the top-right corner to access:
-- **Clear Map**: Remove all routes and markers
-- **Show All Nodes**: Display all city locations
-- **Show All Roads**: Display all roads in the city
-
-## 🧮 Graph Algorithms Used
-
-1. **Dijkstra's Algorithm** – Finds shortest path for rides and nearest driver
-2. **BFS/DFS** – Checks connectivity and explores the city map
-3. **Prim's Algorithm (MST)** – Builds minimum-cost road network
-4. **Kruskal's Algorithm (MST)** – Optimizes existing road networks
-5. **Topological Sort** – Schedules ride workflow tasks in proper order
-
-## 🏗️ Project Structure
-
-```
-ridex_backend/
-├── app.py                 # Flask application and API endpoints
-├── graph_algorithms.py    # Graph algorithms implementation
-├── city_map.py            # City map and driver management
-├── requirements.txt       # Python dependencies
-├── templates/
-│   └── index.html        # Frontend HTML template
-└── README.md             # This file
-```
-
-## 🌐 API Endpoints
-
-- `GET /` - Main application page
-- `GET /api/city-map` - Get city map information
-- `POST /api/request-ride` - Request a ride (body: `{pickup: int, dropoff: int}`)
-- `GET /api/mst/prim` - Get MST using Prim's algorithm
-- `GET /api/mst/kruskal` - Get MST using Kruskal's algorithm
-- `GET /api/drivers` - Get all drivers information
-- `GET /api/workflow` - Get ride workflow schedule
-
-## 📍 City Map
-
-The system uses Lahore, Pakistan as the city map with 20 locations:
-- Anarkali (Downtown)
-- Model Town
-- Johar Town
-- Defence Phase 5
-- Gulberg
-- DHA Phase 1
-- And more...
-
-## 💰 Fare Calculation
-
-- **Base Fare**: PKR 150
-- **Rate per Kilometer**: PKR 50
-- **Petrol Price per Litre**: PKR 263.4 (fixed)
-- **Fuel consumption**: 0.1 L per km (assumed)
-- **Formula**: Base Fare + (Distance km × Rate per km) + (Distance km × Fuel consumption × Petrol price)
-
-## 🎨 Technologies Used
-
-- **Backend**: Flask (Python)
-- **Frontend**: HTML, CSS, JavaScript
-- **Maps**: MapLibre GL JS
-- **Fonts**: Poppins (Google Fonts)
-- **Algorithms**: Graph theory (Dijkstra, BFS, DFS, Prim, Kruskal, Topological Sort)
-
-## 📝 Example Usage
-
-### Request Ride via API
-
-```bash
-curl -X POST http://localhost:5000/api/request-ride \
-  -H "Content-Type: application/json" \
-  -d '{"pickup": 0, "dropoff": 5}'
-```
-
-### Get City Map
-
-```bash
-curl http://localhost:5000/api/city-map
-```
-
-## 🔧 Troubleshooting
-
-**Port already in use:**
-- Change the port in `app.py`: `app.run(debug=True, port=5001)`
-
-**Dependencies not installing:**
-- Ensure you're using Python 3.7+
-- Try: `pip install --upgrade pip` then `pip install -r requirements.txt`
-
-**Map not loading:**
-- Check browser console for errors
-- Ensure internet connection (for map tiles)
-
-## 📄 License
-
-MIT
-
-## 👨‍💻 Development
-
-This is a demonstration project for graph algorithms in transportation systems.
-
-## 🎯 Key Features Highlight
-
-- ✅ Precise location selection (map click or dropdown)
-- ✅ Fare calculation with detailed breakdown
-- ✅ Premium car animation from pickup to dropoff
-- ✅ Professional UI with Poppins font
-- ✅ Responsive design
-- ✅ No API keys required (uses OpenStreetMap tiles)
+What sets RideX apart is its **Hybrid Architecture**: while the user interface and API are managed by **Python (Flask)**, the heavy computational lifting (Dijkstra, Prim, Kruskal) is offloaded to a **high-performance C++ engine**, ensuring lightning-fast results even as the network scales.
 
 ---
 
-**Enjoy using RideX!** 🚗✨
-=======
-# ridex-transportation-system
->>>>>>> d7718ee235e5c2e033066eeb34593dcd0ea1e6ab
+## 🚀 Key Features
+
+### 🧠 Intelligent Core
+- **Hybrid Python/C++ Engine**: Seamless integration of Python's flexibility with C++'s raw speed for graph processing.
+- **Smart Dispatch**: utilitizes **Dijkstra’s Algorithm** to instantly find the nearest available driver and the optimal route to the destination.
+- **Infrastructure Optimization**: Implements **Prim’s** and **Kruskal’s** algorithms to identify Minimum Spanning Trees (MST), useful for road maintenance planning and network cost optimization.
+- **Workflow Management**: Uses **Topological Sort** to enforce a logical sequence of ride operations (Verify -> Assign -> Route -> ... -> Receipt).
+
+### 🎨 Premium User Experience
+- **Interactive Map**: Built with **MapLibre GL JS**, featuring a detailed real-world map of **Lahore, Pakistan**.
+- **Modern UI/UX**: A polished interface featuring **FontAwesome** icons, smooth animations, and a responsive sidebar layout.
+- **Real-Time Visualization**: Watch as the system visualizes routes, driver movements, and graph traversals in real-time.
+- **Dynamic Feedback**: Instant fare calculations based on distance, fuel consumption, and base rates.
+
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology | Description |
+|-----------|------------|-------------|
+| **Frontend** | HTML5, CSS3, JavaScript | Interactive UI with MapLibre GL JS for map rendering. |
+| **Backend** | Python (Flask) | RESTful API to handle client requests and orchestrate services. |
+| **Engine** | **C++ (STD 17)** | Compiled executables (`graph_solver.exe`) for executing graph algorithms. |
+| **Communication** | IPC (Subprocess) | Robust data serialization/deserialization between Python and C++. |
+
+---
+
+## 📋 Prerequisites
+
+- **Python 3.8+**
+- **C++ Compiler** (g++ or MSVC) - *Pre-compiled binaries are included for Windows.*
+- **Modern Web Browser** (Chrome, Edge, Firefox)
+
+---
+
+## ⚡ Quick Start
+
+### 1. Installation
+
+Clone the repository and install the Python dependencies:
+
+```bash
+# Navigate to the project directory
+cd ridex_project
+
+# Install required Python packages
+pip install -r requirements.txt
+```
+
+### 2. Run the Application
+
+Start the Flask server:
+
+```bash
+python app.py
+```
+
+### 3. Usage
+
+Open your browser and navigate to:
+👉 **`http://127.0.0.1:5000`**
+
+---
+
+## 📖 User Guide
+
+### 📍 Requesting a Ride
+1.  **Select Locations**: Use the dropdown menus or click the **"Map"** buttons to pinpoint your Pickup and Dropoff locations on the interactive map.
+2.  **Request**: Click **"Request Ride"**. The system will:
+    *   Find the nearest driver (Dijkstra).
+    *   Calculate the optimal route (Dijkstra).
+    *   Estimate the fare.
+3.  **Confirm**: Review the fare and click **"Confirm"** to watch the driver navigate to you and complete the trip.
+
+### 🛣️ Network Analysis (MST)
+*   **Prim's Algorithm**: Click the "Prim's MST" button to visualize the most cost-effective way to connect all city nodes starting from a central point.
+*   **Kruskal's Algorithm**: Click "Kruskal's MST" to see the global minimum spanning tree construction.
+*   *Useful for: City planning, fiber optic laying, and road maintenance.*
+
+### 📋 Workflow Verification
+*   Click **"Show Workflow Schedule"** to see the topological ordering of the ride lifecycle. This ensures no step (like "Receipt") happens before its prerequisites (like "End Ride").
+
+---
+
+## 📂 Project Structure
+
+```
+ridex_project/
+├── 📄 app.py                 # Flask Server Entry Point
+├── 📄 api.py                 # REST API Routes
+├── 📄 city_map.py            # Graph Data Structures & C++ Bridge
+├── 📄 requirements.txt       # Python Dependencies
+├── 🖥️ graph_solver.cpp       # C++ Source for Graph Algorithms
+├── ⚙️ graph_solver.exe       # Compiled C++ Engine
+├── 📁 templates/
+│   └── 📄 index.html         # Main Frontend Application
+├── 📁 static/
+│   ├── 📁 css/               # Stylesheets
+│   └── 📁 js/                # Frontend Logic
+└── 📄 README.md              # Project Documentation
+```
+
+---
+
+## 🧮 Algorithm Deep Dive
+
+| Algorithm | Complexity | Use Case in RideX |
+|-----------|------------|-------------------|
+| **Dijkstra** | $O(E + V \log V)$ | Finding the shortest path for drivers and routes. |
+| **Prim's** | $O(E + V \log V)$ | Building an efficient road network starting from a hub. |
+| **Kruskal's** | $O(E \log E)$ | Finding the absolute minimum cost to connect all intersections. |
+| **Topological Sort** | $O(V + E)$ | rigorous scheduling of the ride-hailing workflow. |
+
+---
+
+## 👨‍💻 Developers
+
+Build with ❤️ by **Cookie-coder1245**.
+
+*For educational purposes and graph theory demonstration.*

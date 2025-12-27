@@ -453,7 +453,7 @@ async function showWorkflow() {
 
             container.innerHTML = `
                 <div class="result-box">
-                    <h3>Workflow Schedule (Topological Sort)</h3>
+                    <h3>Workflow Schedule</h3>
                     <ol class="workflow-list">${workflow}</ol>
                 </div>
             `;
