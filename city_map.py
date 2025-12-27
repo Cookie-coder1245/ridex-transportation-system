@@ -2,6 +2,7 @@
 City Map and Driver Management for RideX
 """
 import subprocess
+import math
 import os
 import sys
 from typing import List, Dict, Tuple, Set, Optional
@@ -48,11 +49,12 @@ class GraphAlgorithms:
     @staticmethod
     def _run_cpp_solver(input_str: str, algo: str, args: List[str] = []) -> List[str]:
         """Execute the C++ graph solver"""
+        import math
         current_dir = os.path.dirname(os.path.abspath(__file__))
         exe_path = os.path.join(current_dir, 'graph_solver')
         if os.name == 'nt':
             exe_path += '.exe'
-            
+        
         cmd = [exe_path, algo] + args
         
         try:
@@ -202,64 +204,62 @@ class CityMap:
         # Node positions (longitude, latitude) - Lahore, Pakistan coordinates
         # Base: 31.5497° N, 74.3436° E (Lahore center)
         positions = {
-            0: (74.3436, 31.5497),   # Downtown (Lahore Center - Anarkali)
-            1: (74.3536, 31.5597),   # North (Model Town)
-            2: (74.3636, 31.5697),   # Further North (Johar Town)
-            3: (74.3736, 31.5797),   # Northern edge (Defence Phase 5)
-            4: (74.3336, 31.5497),   # West (Ichhra)
-            5: (74.3236, 31.5597),   # Northwest (Gulberg)
-            6: (74.3136, 31.5697),   # Far Northwest (Faisal Town)
-            7: (74.3036, 31.5797),   # Northern West (Wapda Town)
-            8: (74.3536, 31.5397),   # South (Multan Road area)
-            9: (74.3636, 31.5297),   # Further South (Raiwind Road)
-            10: (74.3736, 31.5197),  # Southern edge (Barkat Market)
-            11: (74.3336, 31.5397),  # Southwest (Samanabad)
-            12: (74.3236, 31.5297),  # Far Southwest (Allama Iqbal Town)
-            13: (74.3136, 31.5197),  # Southern West (Gulshan-e-Ravi)
-            14: (74.3436, 31.5597),  # Center North (Liberty Market)
-            15: (74.3436, 31.5397),  # Center South (Ferozepur Road)
-            16: (74.3536, 31.5497),  # Center East (DHA Phase 1)
-            17: (74.3336, 31.5497),  # Center West (Shadman)
-            18: (74.3736, 31.5497),  # Far East (DHA Phase 6)
-            19: (74.3136, 31.5497),  # Far West (Ravi Road)
+            0: (74.3436, 31.5497),   # Downtown (Anarkali)
+            1: (74.3525, 31.5600),   # Model Town
+            2: (74.3620, 31.5690),   # Johar Town
+            3: (74.3715, 31.5790),   # Defence Phase 5
+            4: (74.3330, 31.5490),   # Ichhra
+            5: (74.3225, 31.5595),   # Gulberg
+            6: (74.3120, 31.5695),   # Faisal Town
+            7: (74.3025, 31.5795),   # Wapda Town
+            8: (74.3530, 31.5390),   # Multan Road
+            9: (74.3630, 31.5290),   # Raiwind Road
+            10: (74.3735, 31.5195),  # Barkat Market
+            11: (74.3130, 31.5390),  # Samanabad
+            12: (74.2839, 31.5111),  # Allama Iqbal Town
+            13: (74.3135, 31.5195),  # Gulshan-e-Ravi
+            14: (74.3435, 31.5595),  # Liberty Market
+            15: (74.3435, 31.5395),  # Ferozepur Road
+            16: (74.3535, 31.5495),  # DHA Phase 1
+            17: (74.3335, 31.5495),  # Shadman
+            18: (74.3735, 31.5495),  # DHA Phase 6
+            19: (74.3135, 31.5495),  # Ravi Road
         }
         
         self.node_positions = positions
         
         # Add roads (edges) with distances (weights in kilometers)
         # Main roads
-        self.graph.add_edge(0, 1, 1.2)   # Downtown to North
-        self.graph.add_edge(1, 2, 1.5)   # North to Further North
-        self.graph.add_edge(2, 3, 1.3)   # Further North to Northern edge
-        self.graph.add_edge(0, 4, 1.0)   # Downtown to West
-        self.graph.add_edge(4, 5, 1.4)   # West to Northwest
-        self.graph.add_edge(5, 6, 1.6)   # Northwest to Far Northwest
-        self.graph.add_edge(6, 7, 1.2)   # Far Northwest to Northern West
-        self.graph.add_edge(0, 8, 1.1)   # Downtown to South
-        self.graph.add_edge(8, 9, 1.3)   # South to Further South
-        self.graph.add_edge(9, 10, 1.4)  # Further South to Southern edge
-        self.graph.add_edge(4, 11, 1.2)  # West to Southwest
-        self.graph.add_edge(11, 12, 1.5) # Southwest to Far Southwest
-        self.graph.add_edge(12, 13, 1.3) # Far Southwest to Southern West
-        
+        # Use dynamic distance calculation for all edges
+        def add(u, v):
+            self.graph.add_edge(u, v, self._distance(u, v))
+
+        # Main grid connections
+        add(0, 1); add(1, 2); add(2, 3)
+        add(0, 4); add(4, 5); add(5, 6); add(6, 7)
+        add(0, 8); add(8, 9); add(9, 10)
+        add(4, 11); add(11, 12); add(12, 13)
+
         # Cross connections
-        self.graph.add_edge(0, 14, 1.0)  # Downtown to Center North
-        self.graph.add_edge(0, 15, 1.0)  # Downtown to Center South
-        self.graph.add_edge(0, 16, 0.8)  # Downtown to Center East
-        self.graph.add_edge(0, 17, 0.9)  # Downtown to Center West
-        self.graph.add_edge(1, 14, 0.7)  # North to Center North
-        self.graph.add_edge(1, 16, 1.1)  # North to Center East
-        self.graph.add_edge(4, 17, 0.8)  # West to Center West
-        self.graph.add_edge(8, 15, 0.9)  # South to Center South
-        self.graph.add_edge(16, 18, 1.2) # Center East to Far East
-        self.graph.add_edge(17, 19, 1.4) # Center West to Far West
-        
-        # Additional connections for better connectivity
-        self.graph.add_edge(1, 5, 1.8)   # North to Northwest
-        self.graph.add_edge(8, 11, 1.6)  # South to Southwest
-        self.graph.add_edge(14, 5, 1.5)  # Center North to Northwest
-        self.graph.add_edge(15, 11, 1.4) # Center South to Southwest
-    
+        add(0, 14); add(0, 15); add(0, 16); add(0, 17)
+        add(1, 14); add(1, 16)
+        add(4, 17); add(8, 15)
+        add(16, 18); add(17, 19)
+
+        # Additional connectivity
+        add(1, 5); add(8, 11); add(14, 5); add(15, 11)
+
+    def _distance(self, u: int, v: int) -> float:
+        """Haversine distance between two node IDs (km)."""
+        lon1, lat1 = self.node_positions[u]
+        lon2, lat2 = self.node_positions[v]
+        R = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (math.sin(dlat / 2) ** 2 +
+             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+             math.sin(dlon / 2) ** 2)
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     def get_node_coordinates(self, node: int) -> Tuple[float, float]:
         """Get longitude, latitude for a node"""
         return self.node_positions.get(node, (0.0, 0.0))

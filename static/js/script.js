@@ -35,7 +35,7 @@ let carMarker = null;
 let animationInProgress = false;
 
 // Load city map data
-fetch('/api/city-map')
+fetch('/api/city-map?t=' + Date.now())
     .then(res => res.json())
     .then(data => {
         if (data.success) {
@@ -74,7 +74,7 @@ const locationNames = {
 function populateLocationDropdowns() {
     const pickup = document.getElementById('pickup');
     const dropoff = document.getElementById('dropoff');
-    
+
     Object.keys(cityMapData.nodes_coords).forEach(nodeId => {
         const name = locationNames[nodeId] || `Location ${nodeId}`;
         const option1 = new Option(name, nodeId);
@@ -132,7 +132,10 @@ function displayRideResult(result) {
     const perKmRate = 50.0;
     const rideDistance = result.ride_path.distance_km;
     const distanceFare = rideDistance * perKmRate;
-    const totalFare = baseFare + distanceFare;
+    const PETROL_PRICE_PER_LITRE = 263.4;
+    const LITRES_PER_KM = 0.1; // assumed consumption per km
+    const fuelCost = rideDistance * LITRES_PER_KM * PETROL_PRICE_PER_LITRE;
+    const totalFare = baseFare + distanceFare + fuelCost;
 
     container.innerHTML = `
         <div class="result-box">
@@ -320,7 +323,7 @@ function animateCarOnRoute(result) {
     `;
     badge.textContent = '★';
     carEl.appendChild(badge);
-    
+
     const carIcon = document.createElement('div');
     carIcon.innerHTML = createSVGIcon('car', '#ffffff');
     carIcon.style.cssText = 'width: 36px; height: 36px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));';
@@ -334,12 +337,12 @@ function animateCarOnRoute(result) {
 
     // Use only the ride path from pickup (source) to dropoff (destination)
     const ridePath = result.ride_path.path_coords;
-    
+
     if (ridePath.length < 2) {
         animationInProgress = false;
         return;
     }
-    
+
     let currentIndex = 0;
     const animateStep = () => {
         if (currentIndex >= ridePath.length - 1) {
@@ -405,7 +408,7 @@ async function showMST(algorithm) {
 
 function displayMSTOnMap(mstData) {
     clearMap();
-    
+
     // Draw all MST edges
     mstData.edge_coords.forEach(edge => {
         drawRoute([edge.u_coords, edge.v_coords], '#059669', `MST Edge (${edge.weight} km)`);
@@ -441,7 +444,7 @@ async function showWorkflow() {
         const result = await response.json();
 
         if (result.success) {
-            const workflow = result.data.workflow.map((step, index) => 
+            const workflow = result.data.workflow.map((step, index) =>
                 `<li>${index + 1}. ${step}</li>`
             ).join('');
 
@@ -488,11 +491,11 @@ function showAllNodes() {
         // Only add if not already selected (check if coordinates match)
         let isPickup = false;
         let isDropoff = false;
-        
+
         if (selectionMarkers && selectionMarkers.pickup) {
             try {
                 const pickupLngLat = selectionMarkers.pickup.getLngLat();
-                if (pickupLngLat && Math.abs(pickupLngLat.lng - coords[0]) < 0.0001 && 
+                if (pickupLngLat && Math.abs(pickupLngLat.lng - coords[0]) < 0.0001 &&
                     Math.abs(pickupLngLat.lat - coords[1]) < 0.0001) {
                     isPickup = true;
                 }
@@ -500,11 +503,11 @@ function showAllNodes() {
                 // Marker might not have getLngLat method, skip check
             }
         }
-        
+
         if (selectionMarkers && selectionMarkers.dropoff) {
             try {
                 const dropoffLngLat = selectionMarkers.dropoff.getLngLat();
-                if (dropoffLngLat && Math.abs(dropoffLngLat.lng - coords[0]) < 0.0001 && 
+                if (dropoffLngLat && Math.abs(dropoffLngLat.lng - coords[0]) < 0.0001 &&
                     Math.abs(dropoffLngLat.lat - coords[1]) < 0.0001) {
                     isDropoff = true;
                 }
@@ -512,7 +515,7 @@ function showAllNodes() {
                 // Marker might not have getLngLat method, skip check
             }
         }
-        
+
         if (!isPickup && !isDropoff) {
             addMarker(coords, name, '#6B7280', 'default', parseInt(nodeId));
         }
@@ -539,13 +542,13 @@ const nodeColors = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4
 function addMarker(coords, title, color, iconType = 'default', nodeId = null) {
     const el = document.createElement('div');
     el.className = 'marker';
-    
+
     // Create icon based on type
     let iconHTML = '';
     let size = '30px';
     let bgColor = color;
     let borderColor = color;
-    
+
     if (iconType === 'driver' || iconType === 'car-moving') {
         iconHTML = '🚗';
         size = '40px';
@@ -573,7 +576,7 @@ function addMarker(coords, title, color, iconType = 'default', nodeId = null) {
         }
         size = '28px';
     }
-    
+
     el.style.cssText = `
         width: ${size};
         height: ${size};
@@ -601,13 +604,13 @@ function addMarker(coords, title, color, iconType = 'default', nodeId = null) {
         el.style.boxShadow = '0 3px 12px rgba(0,0,0,0.5)';
     });
 
-    const marker = new maplibregl.Marker({ 
+    const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center'
     })
         .setLngLat(coords)
         .addTo(map);
-    
+
     currentMarkers.push(marker);
     return marker;
 }
@@ -669,7 +672,7 @@ function clearMap() {
                 marker.remove();
             }
         });
-        currentMarkers = currentMarkers.filter(m => 
+        currentMarkers = currentMarkers.filter(m =>
             m === selectionMarkers.pickup || m === selectionMarkers.dropoff
         );
     } else {
@@ -706,10 +709,10 @@ function setupMapClickHandler() {
         if (!selectionMode || !cityMapData) return;
 
         const clickedCoords = [e.lngLat.lng, e.lngLat.lat];
-        
+
         // Find nearest node
         const nearestNode = findNearestNode(clickedCoords);
-        
+
         if (nearestNode) {
             selectLocation(selectionMode, nearestNode.id, nearestNode.coords, nearestNode.name);
         }
@@ -726,7 +729,7 @@ function findNearestNode(coords) {
     Object.keys(cityMapData.nodes_coords).forEach(nodeId => {
         const nodeCoords = cityMapData.nodes_coords[nodeId];
         const distance = calculateDistance(coords, nodeCoords);
-        
+
         if (distance < minDistance) {
             minDistance = distance;
             nearestNode = {
@@ -745,30 +748,30 @@ function calculateDistance(coord1, coord2) {
     const R = 6371; // Earth's radius in km
     const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
     const dLon = (coord2[0] - coord1[0]) * Math.PI / 180;
-    const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(coord1[1] * Math.PI / 180) * Math.cos(coord2[1] * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
 
 // Set selection mode
 function setSelectionMode(mode) {
     selectionMode = mode;
-    
+
     // Update button styles
     document.getElementById('pickupBtn').style.background = mode === 'pickup' ? '#1e40af' : '#3B82F6';
     document.getElementById('dropoffBtn').style.background = mode === 'dropoff' ? '#991b1b' : '#EF4444';
-    
+
     // Update cursor
     map.getCanvas().style.cursor = 'crosshair';
-    
+
     // Show instruction
-    const instruction = mode === 'pickup' 
+    const instruction = mode === 'pickup'
         ? 'Click on the map to select pickup location'
         : 'Click on the map to select dropoff location';
-    
+
     showMapInstruction(instruction);
 }
 
@@ -777,7 +780,7 @@ function selectLocation(type, nodeId, coords, name) {
     if (!selectionMarkers) {
         selectionMarkers = { pickup: null, dropoff: null };
     }
-    
+
     if (type === 'pickup') {
         selectedPickup = { id: nodeId, coords, name };
         document.getElementById('pickup').value = nodeId;
@@ -785,12 +788,19 @@ function selectLocation(type, nodeId, coords, name) {
         if (pickupDisplay) {
             pickupDisplay.textContent = `✓ Selected: ${name}`;
         }
-        
+
         // Add/update pickup marker
         if (selectionMarkers.pickup) {
             selectionMarkers.pickup.remove();
         }
         selectionMarkers.pickup = addMarker(coords, `Pickup: ${name}`, '#3B82F6', 'pickup');
+
+        // Fly to location
+        map.flyTo({
+            center: coords,
+            zoom: 14,
+            speed: 1.2
+        });
     } else if (type === 'dropoff') {
         selectedDropoff = { id: nodeId, coords, name };
         document.getElementById('dropoff').value = nodeId;
@@ -798,12 +808,19 @@ function selectLocation(type, nodeId, coords, name) {
         if (dropoffDisplay) {
             dropoffDisplay.textContent = `✓ Selected: ${name}`;
         }
-        
+
         // Add/update dropoff marker
         if (selectionMarkers.dropoff) {
             selectionMarkers.dropoff.remove();
         }
         selectionMarkers.dropoff = addMarker(coords, `Dropoff: ${name}`, '#EF4444', 'dropoff');
+
+        // Fly to location
+        map.flyTo({
+            center: coords,
+            zoom: 14,
+            speed: 1.2
+        });
     }
 
     // Reset selection mode
@@ -853,12 +870,12 @@ function hideMapInstruction() {
 function setupDropdownHandlers() {
     const pickupSelect = document.getElementById('pickup');
     const dropoffSelect = document.getElementById('dropoff');
-    
+
     pickupSelect.addEventListener('change', (e) => {
         if (!selectionMarkers) {
             selectionMarkers = { pickup: null, dropoff: null };
         }
-        
+
         if (e.target.value && cityMapData) {
             const nodeId = parseInt(e.target.value);
             const coords = cityMapData.nodes_coords[nodeId];
@@ -881,7 +898,7 @@ function setupDropdownHandlers() {
         if (!selectionMarkers) {
             selectionMarkers = { pickup: null, dropoff: null };
         }
-        
+
         if (e.target.value && cityMapData) {
             const nodeId = parseInt(e.target.value);
             const coords = cityMapData.nodes_coords[nodeId];

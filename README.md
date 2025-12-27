@@ -141,7 +141,9 @@ The system uses Lahore, Pakistan as the city map with 20 locations:
 
 - **Base Fare**: PKR 150
 - **Rate per Kilometer**: PKR 50
-- **Formula**: Base Fare + (Distance in km × Rate per km)
+- **Petrol Price per Litre**: PKR 263.4 (fixed)
+- **Fuel consumption**: 0.1 L per km (assumed)
+- **Formula**: Base Fare + (Distance km × Rate per km) + (Distance km × Fuel consumption × Petrol price)
 
 ## 🎨 Technologies Used
 
