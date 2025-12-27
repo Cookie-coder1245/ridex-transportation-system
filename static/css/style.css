@@ -1,0 +1,236 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: #f5f5f5;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    height: 100vh;
+}
+
+.sidebar {
+    background: white;
+    padding: 20px;
+    overflow-y: auto;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+}
+
+.map-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+}
+
+h1 {
+    color: #4F46E5;
+    margin-bottom: 10px;
+    font-size: 28px;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+}
+
+.section {
+    margin-bottom: 30px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.section h2 {
+    color: #374151;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #4F46E5;
+    padding-bottom: 5px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #374151;
+    font-weight: 500;
+    font-family: 'Poppins', sans-serif;
+}
+
+select, input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: 'Poppins', sans-serif;
+}
+
+select:focus, input:focus {
+    outline: none;
+    border-color: #4F46E5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    background: #4F46E5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.2s ease;
+    letter-spacing: 0.3px;
+}
+
+button:hover {
+    background: #4338CA;
+}
+
+button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.button-secondary {
+    background: #6b7280;
+}
+
+.button-secondary:hover {
+    background: #4b5563;
+}
+
+.result-box {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.result-box h3 {
+    color: #4F46E5;
+    margin-bottom: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    color: #6b7280;
+    font-weight: 400;
+    font-family: 'Poppins', sans-serif;
+}
+
+.info-value {
+    color: #111827;
+    font-weight: 500;
+    font-family: 'Poppins', sans-serif;
+}
+
+.workflow-list {
+    list-style: none;
+    padding: 0;
+}
+
+.workflow-list li {
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    background: white;
+    border-radius: 4px;
+    border-left: 4px solid #4F46E5;
+}
+
+.workflow-list li:first-child {
+    background: #eff6ff;
+    font-weight: 600;
+}
+
+.error {
+    color: #dc2626;
+    padding: 10px;
+    background: #fef2f2;
+    border-radius: 6px;
+    border: 1px solid #fecaca;
+    margin-top: 10px;
+}
+
+.success {
+    color: #059669;
+    padding: 10px;
+    background: #ecfdf5;
+    border-radius: 6px;
+    border: 1px solid #a7f3d0;
+    margin-top: 10px;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: #6b7280;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+.map-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    min-width: 200px;
+}
+
+.map-controls button {
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+.map-controls button:last-child {
+    margin-bottom: 0;
+}

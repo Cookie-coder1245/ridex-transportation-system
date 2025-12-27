@@ -1,0 +1,487 @@
+"""
+City Map and Driver Management for RideX
+"""
+import subprocess
+import os
+import sys
+from typing import List, Dict, Tuple, Set, Optional
+
+# Ride workflow dependencies
+RIDE_WORKFLOW_DEPENDENCIES = {
+    'Verify': [],
+    'Assign': ['Verify'],
+    'Route': ['Assign'],
+    'Fare': ['Route'],
+    'Start': ['Fare'],
+    'End': ['Start'],
+    'Receipt': ['End']
+}
+
+
+class Graph:
+    """Weighted graph representation using adjacency list"""
+    
+    def __init__(self):
+        self.adjacency_list: Dict[int, List[Tuple[int, float]]] = {}
+        self.nodes: Set[int] = set()
+    
+    def add_edge(self, u: int, v: int, weight: float):
+        """Add weighted edge between nodes u and v"""
+        if u not in self.adjacency_list:
+            self.adjacency_list[u] = []
+        if v not in self.adjacency_list:
+            self.adjacency_list[v] = []
+        
+        self.adjacency_list[u].append((v, weight))
+        self.adjacency_list[v].append((u, weight))
+        self.nodes.add(u)
+        self.nodes.add(v)
+    
+    def get_neighbors(self, node: int) -> List[Tuple[int, float]]:
+        """Get all neighbors of a node with weights"""
+        return self.adjacency_list.get(node, [])
+
+
+class GraphAlgorithms:
+    """Collection of graph algorithms for RideX using C++ backend"""
+    
+    @staticmethod
+    def _run_cpp_solver(input_str: str, algo: str, args: List[str] = []) -> List[str]:
+        """Execute the C++ graph solver"""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        exe_path = os.path.join(current_dir, 'graph_solver')
+        if os.name == 'nt':
+            exe_path += '.exe'
+            
+        cmd = [exe_path, algo] + args
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            stdout, stderr = process.communicate(input=input_str)
+            
+            if process.returncode != 0:
+                print(f"Error running C++ solver ({algo}): {stderr}")
+                return []
+                
+            return stdout.strip().split('\n')
+        except Exception as e:
+            print(f"Exception running C++ solver: {e}")
+            return []
+
+    @staticmethod
+    def _serialize_graph(graph: Graph, directed: bool = False) -> str:
+        """Serialize graph for C++ input: N M \n u v w ..."""
+        nodes = sorted(list(graph.nodes))
+        node_to_idx = {node: i for i, node in enumerate(nodes)}
+        
+        edges = []
+        seen_edges = set()
+        
+        for u in graph.adjacency_list:
+            for v, weight in graph.adjacency_list[u]:
+                if not directed:
+                    if u < v: # Avoid duplicates for undirected
+                        edges.append((node_to_idx[u], node_to_idx[v], weight))
+                else:
+                    edges.append((node_to_idx[u], node_to_idx[v], weight))
+                    
+        N = len(nodes)
+        M = len(edges)
+        
+        input_str = f"{N} {M}\n"
+        for u, v, w in edges:
+            input_str += f"{u} {v} {w}\n"
+            
+        return input_str, nodes
+
+    @staticmethod
+    def dijkstra(graph: Graph, start: int, end: int) -> Tuple[List[int], float]:
+        """Dijkstra's algorithm using C++"""
+        if start not in graph.nodes or end not in graph.nodes:
+            return [], float('inf')
+            
+        input_str, nodes = GraphAlgorithms._serialize_graph(graph)
+        node_to_idx = {node: i for i, node in enumerate(nodes)}
+        
+        start_idx = str(node_to_idx[start])
+        end_idx = str(node_to_idx[end])
+        
+        output_lines = GraphAlgorithms._run_cpp_solver(input_str, "dijkstra", [start_idx, end_idx])
+        
+        if not output_lines or len(output_lines) < 2:
+            return [], float('inf')
+            
+        try:
+            distance = float(output_lines[0])
+            path_indices = list(map(int, output_lines[1].split()))
+            path = [nodes[i] for i in path_indices]
+            return path, distance
+        except ValueError:
+            return [], float('inf')
+
+    @staticmethod
+    def prim_mst(graph: Graph) -> List[Tuple[int, int, float]]:
+        """Prim's algorithm using C++"""
+        input_str, nodes = GraphAlgorithms._serialize_graph(graph)
+        output_lines = GraphAlgorithms._run_cpp_solver(input_str, "prim")
+        
+        mst_edges = []
+        for line in output_lines:
+            if not line: continue
+            parts = line.split()
+            if len(parts) == 3:
+                u_idx, v_idx, w = int(parts[0]), int(parts[1]), float(parts[2])
+                mst_edges.append((nodes[u_idx], nodes[v_idx], w))
+        return mst_edges
+
+    @staticmethod
+    def kruskal_mst(graph: Graph) -> List[Tuple[int, int, float]]:
+        """Kruskal's algorithm using C++"""
+        input_str, nodes = GraphAlgorithms._serialize_graph(graph)
+        output_lines = GraphAlgorithms._run_cpp_solver(input_str, "kruskal")
+        
+        mst_edges = []
+        for line in output_lines:
+            if not line: continue
+            parts = line.split()
+            if len(parts) == 3:
+                u_idx, v_idx, w = int(parts[0]), int(parts[1]), float(parts[2])
+                mst_edges.append((nodes[u_idx], nodes[v_idx], w))
+        return mst_edges
+
+    @staticmethod
+    def topological_sort(dependencies: Dict[str, List[str]]) -> List[str]:
+        """Topological sort using C++"""
+        # Map tasks to integers
+        tasks = sorted(list(dependencies.keys()))
+        task_to_idx = {task: i for i, task in enumerate(tasks)}
+        
+        N = len(tasks)
+        edges = []
+        for task, prereqs in dependencies.items():
+            for prereq in prereqs:
+                if prereq in task_to_idx:
+                    # prereq -> task
+                    edges.append((task_to_idx[prereq], task_to_idx[task], 1.0))
+        
+        M = len(edges)
+        input_str = f"{N} {M}\n"
+        for u, v, w in edges:
+            input_str += f"{u} {v} {w}\n"
+            
+        output_lines = GraphAlgorithms._run_cpp_solver(input_str, "topo")
+        
+        if not output_lines or output_lines[0] == "CYCLE":
+            return []
+            
+        try:
+            result_indices = list(map(int, output_lines[0].split()))
+            return [tasks[i] for i in result_indices]
+        except ValueError:
+            return []
+from typing import List, Dict, Tuple, Optional
+
+
+class CityMap:
+    """Represents the city as a weighted graph"""
+    
+    def __init__(self):
+        self.graph = Graph()
+        self.node_positions: Dict[int, Tuple[float, float]] = {}
+        self._initialize_city()
+    
+    def _initialize_city(self):
+        """Initialize a sample city map with intersections and roads"""
+        # Create a grid-like city map with 20 intersections
+        # Node positions (longitude, latitude) - Lahore, Pakistan coordinates
+        # Base: 31.5497° N, 74.3436° E (Lahore center)
+        positions = {
+            0: (74.3436, 31.5497),   # Downtown (Lahore Center - Anarkali)
+            1: (74.3536, 31.5597),   # North (Model Town)
+            2: (74.3636, 31.5697),   # Further North (Johar Town)
+            3: (74.3736, 31.5797),   # Northern edge (Defence Phase 5)
+            4: (74.3336, 31.5497),   # West (Ichhra)
+            5: (74.3236, 31.5597),   # Northwest (Gulberg)
+            6: (74.3136, 31.5697),   # Far Northwest (Faisal Town)
+            7: (74.3036, 31.5797),   # Northern West (Wapda Town)
+            8: (74.3536, 31.5397),   # South (Multan Road area)
+            9: (74.3636, 31.5297),   # Further South (Raiwind Road)
+            10: (74.3736, 31.5197),  # Southern edge (Barkat Market)
+            11: (74.3336, 31.5397),  # Southwest (Samanabad)
+            12: (74.3236, 31.5297),  # Far Southwest (Allama Iqbal Town)
+            13: (74.3136, 31.5197),  # Southern West (Gulshan-e-Ravi)
+            14: (74.3436, 31.5597),  # Center North (Liberty Market)
+            15: (74.3436, 31.5397),  # Center South (Ferozepur Road)
+            16: (74.3536, 31.5497),  # Center East (DHA Phase 1)
+            17: (74.3336, 31.5497),  # Center West (Shadman)
+            18: (74.3736, 31.5497),  # Far East (DHA Phase 6)
+            19: (74.3136, 31.5497),  # Far West (Ravi Road)
+        }
+        
+        self.node_positions = positions
+        
+        # Add roads (edges) with distances (weights in kilometers)
+        # Main roads
+        self.graph.add_edge(0, 1, 1.2)   # Downtown to North
+        self.graph.add_edge(1, 2, 1.5)   # North to Further North
+        self.graph.add_edge(2, 3, 1.3)   # Further North to Northern edge
+        self.graph.add_edge(0, 4, 1.0)   # Downtown to West
+        self.graph.add_edge(4, 5, 1.4)   # West to Northwest
+        self.graph.add_edge(5, 6, 1.6)   # Northwest to Far Northwest
+        self.graph.add_edge(6, 7, 1.2)   # Far Northwest to Northern West
+        self.graph.add_edge(0, 8, 1.1)   # Downtown to South
+        self.graph.add_edge(8, 9, 1.3)   # South to Further South
+        self.graph.add_edge(9, 10, 1.4)  # Further South to Southern edge
+        self.graph.add_edge(4, 11, 1.2)  # West to Southwest
+        self.graph.add_edge(11, 12, 1.5) # Southwest to Far Southwest
+        self.graph.add_edge(12, 13, 1.3) # Far Southwest to Southern West
+        
+        # Cross connections
+        self.graph.add_edge(0, 14, 1.0)  # Downtown to Center North
+        self.graph.add_edge(0, 15, 1.0)  # Downtown to Center South
+        self.graph.add_edge(0, 16, 0.8)  # Downtown to Center East
+        self.graph.add_edge(0, 17, 0.9)  # Downtown to Center West
+        self.graph.add_edge(1, 14, 0.7)  # North to Center North
+        self.graph.add_edge(1, 16, 1.1)  # North to Center East
+        self.graph.add_edge(4, 17, 0.8)  # West to Center West
+        self.graph.add_edge(8, 15, 0.9)  # South to Center South
+        self.graph.add_edge(16, 18, 1.2) # Center East to Far East
+        self.graph.add_edge(17, 19, 1.4) # Center West to Far West
+        
+        # Additional connections for better connectivity
+        self.graph.add_edge(1, 5, 1.8)   # North to Northwest
+        self.graph.add_edge(8, 11, 1.6)  # South to Southwest
+        self.graph.add_edge(14, 5, 1.5)  # Center North to Northwest
+        self.graph.add_edge(15, 11, 1.4) # Center South to Southwest
+    
+    def get_node_coordinates(self, node: int) -> Tuple[float, float]:
+        """Get longitude, latitude for a node"""
+        return self.node_positions.get(node, (0.0, 0.0))
+    
+    def get_path_coordinates(self, path: List[int]) -> List[Tuple[float, float]]:
+        """Convert node path to coordinate list"""
+        return [self.get_node_coordinates(node) for node in path]
+
+
+class Driver:
+    """Represents a driver in the system"""
+    
+    def __init__(self, driver_id: int, current_location: int, name: str = None):
+        self.driver_id = driver_id
+        self.current_location = current_location
+        self.name = name or f"Driver {driver_id}"
+        self.available = True
+    
+    def __repr__(self):
+        return f"Driver(id={self.driver_id}, location={self.current_location}, available={self.available})"
+
+
+class DriverManager:
+    """Manages drivers and their assignments"""
+    
+    def __init__(self, city_map: CityMap):
+        self.city_map = city_map
+        self.drivers: List[Driver] = []
+        self._initialize_drivers()
+    
+    def _initialize_drivers(self):
+        """Initialize some drivers at random locations"""
+        import random
+        driver_locations = [0, 1, 4, 8, 14, 16, 17, 5, 11]  # Spread drivers across city
+        for i, location in enumerate(driver_locations):
+            driver = Driver(i + 1, location, f"Driver {i + 1}")
+            self.drivers.append(driver)
+    
+    def find_nearest_driver(self, pickup_location: int) -> Optional[Tuple[Driver, List[int], float]]:
+        """
+        Find nearest available driver using Dijkstra's algorithm
+        Returns: (driver, path, distance) or None
+        """
+        available_drivers = [d for d in self.drivers if d.available]
+        if not available_drivers:
+            return None
+        
+        nearest_driver = None
+        shortest_distance = float('inf')
+        shortest_path = []
+        
+        for driver in available_drivers:
+            path, distance = GraphAlgorithms.dijkstra(
+                self.city_map.graph,
+                driver.current_location,
+                pickup_location
+            )
+            if distance < shortest_distance:
+                shortest_distance = distance
+                shortest_path = path
+                nearest_driver = driver
+        
+        if nearest_driver:
+            return (nearest_driver, shortest_path, shortest_distance)
+        return None
+
+
+class FareCalculator:
+    """Calculates fare based on distance"""
+    
+    BASE_FARE = 150.0  # Base fare in PKR (Pakistani Rupees)
+    PER_KM_RATE = 50.0  # Rate per kilometer in PKR
+    
+    @staticmethod
+    def calculate_fare(distance_km: float) -> float:
+        """Calculate fare based on distance"""
+        return FareCalculator.BASE_FARE + (distance_km * FareCalculator.PER_KM_RATE)
+
+
+class RideService:
+    """Main service for handling rides"""
+    
+    def __init__(self):
+        self.city_map = CityMap()
+        self.driver_manager = DriverManager(self.city_map)
+        self.fare_calculator = FareCalculator()
+        self.graph_algorithms = GraphAlgorithms()
+    
+    def request_ride(self, pickup_node: int, dropoff_node: int) -> Dict:
+        """
+        Process a ride request
+        Returns: ride information including path, driver, fare, etc.
+        """
+        # Find nearest driver
+        driver_info = self.driver_manager.find_nearest_driver(pickup_node)
+        if not driver_info:
+            return {
+                'success': False,
+                'error': 'No available drivers'
+            }
+        
+        driver, driver_to_pickup_path, driver_to_pickup_distance = driver_info
+        
+        # Find route from pickup to dropoff
+        ride_path, ride_distance = self.graph_algorithms.dijkstra(
+            self.city_map.graph,
+            pickup_node,
+            dropoff_node
+        )
+        
+        if not ride_path:
+            return {
+                'success': False,
+                'error': 'No path found between pickup and dropoff locations'
+            }
+        
+        # Calculate total distance (driver to pickup + pickup to dropoff)
+        total_distance = driver_to_pickup_distance + ride_distance
+        
+        # Calculate fare
+        fare = self.fare_calculator.calculate_fare(ride_distance)
+        
+        # Get workflow schedule
+        workflow = self.graph_algorithms.topological_sort(RIDE_WORKFLOW_DEPENDENCIES)
+        
+        # Convert paths to coordinates
+        driver_path_coords = self.city_map.get_path_coordinates(driver_to_pickup_path)
+        ride_path_coords = self.city_map.get_path_coordinates(ride_path)
+        
+        return {
+            'success': True,
+            'driver': {
+                'id': driver.driver_id,
+                'name': driver.name,
+                'current_location': driver.current_location,
+                'location_coords': self.city_map.get_node_coordinates(driver.current_location)
+            },
+            'pickup': {
+                'node': pickup_node,
+                'coords': self.city_map.get_node_coordinates(pickup_node)
+            },
+            'dropoff': {
+                'node': dropoff_node,
+                'coords': self.city_map.get_node_coordinates(dropoff_node)
+            },
+            'driver_to_pickup': {
+                'path': driver_to_pickup_path,
+                'path_coords': driver_path_coords,
+                'distance_km': round(driver_to_pickup_distance, 2)
+            },
+            'ride_path': {
+                'path': ride_path,
+                'path_coords': ride_path_coords,
+                'distance_km': round(ride_distance, 2)
+            },
+            'total_distance_km': round(total_distance, 2),
+            'fare': round(fare, 2),
+            'workflow': workflow
+        }
+    
+    def get_mst_prim(self) -> Dict:
+        """Get Minimum Spanning Tree using Prim's algorithm"""
+        mst_edges = self.graph_algorithms.prim_mst(self.city_map.graph)
+        return {
+            'algorithm': 'Prim',
+            'edges': mst_edges,
+            'total_edges': len(mst_edges),
+            'edge_coords': [
+                {
+                    'u': u,
+                    'v': v,
+                    'weight': weight,
+                    'u_coords': self.city_map.get_node_coordinates(u),
+                    'v_coords': self.city_map.get_node_coordinates(v)
+                }
+                for u, v, weight in mst_edges
+            ]
+        }
+    
+    def get_mst_kruskal(self) -> Dict:
+        """Get Minimum Spanning Tree using Kruskal's algorithm"""
+        mst_edges = self.graph_algorithms.kruskal_mst(self.city_map.graph)
+        return {
+            'algorithm': 'Kruskal',
+            'edges': mst_edges,
+            'total_edges': len(mst_edges),
+            'edge_coords': [
+                {
+                    'u': u,
+                    'v': v,
+                    'weight': weight,
+                    'u_coords': self.city_map.get_node_coordinates(u),
+                    'v_coords': self.city_map.get_node_coordinates(v)
+                }
+                for u, v, weight in mst_edges
+            ]
+        }
+    
+    def get_city_map_info(self) -> Dict:
+        """Get city map information"""
+        nodes_coords = {
+            node: self.city_map.get_node_coordinates(node)
+            for node in self.city_map.graph.nodes
+        }
+        
+        edges_info = []
+        for u in self.city_map.graph.adjacency_list:
+            for v, weight in self.city_map.graph.adjacency_list[u]:
+                if u < v:  # Avoid duplicates
+                    edges_info.append({
+                        'u': u,
+                        'v': v,
+                        'weight': weight,
+                        'u_coords': self.city_map.get_node_coordinates(u),
+                        'v_coords': self.city_map.get_node_coordinates(v)
+                    })
+        
+        return {
+            'nodes': list(self.city_map.graph.nodes),
+            'nodes_coords': nodes_coords,
+            'edges': edges_info,
+            'total_nodes': len(self.city_map.graph.nodes),
+            'total_edges': len(edges_info)
+        }
+
