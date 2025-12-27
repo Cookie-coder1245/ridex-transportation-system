@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # RideX: Smart Transportation System Using Graphs
 
 A lightweight ride-hailing simulation system that models a city using graph theory. Intersections are nodes, roads are weighted edges, and the system demonstrates routing, driver allocation, road optimization, and workflow scheduling in a realistic scenario.
@@ -199,3 +200,6 @@ This is a demonstration project for graph algorithms in transportation systems.
 ---
 
 **Enjoy using RideX!** 🚗✨
+=======
+# ridex-transportation-system
+>>>>>>> d7718ee235e5c2e033066eeb34593dcd0ea1e6ab
