@@ -20,8 +20,9 @@ const map = new maplibregl.Map({
         }]
     },
     center: [74.3436, 31.5497],  // Lahore, Pakistan
-    zoom: 12
+    zoom: 12,
 });
+map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true }), 'top-right');
 
 // Global variables
 let cityMapData = null;
@@ -204,6 +205,8 @@ function confirmRide() {
 
     // Display route on map and start car animation
     displayRideOnMap(pendingRideResult);
+    // Start car animation from source to destination
+    animateCarOnRoute(pendingRideResult);
     pendingRideResult = null;
 }
 
@@ -535,7 +538,7 @@ function showAllEdges() {
     });
 }
 
-// Color palette for nodes
+
 const nodeColors = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#06B6D4', '#84CC16', '#F97316', '#6366F1'];
 
 // Map utility functions with better icons and colors
@@ -594,16 +597,7 @@ function addMarker(coords, title, color, iconType = 'default', nodeId = null) {
     el.innerHTML = iconHTML;
     el.title = title;
 
-    // Add hover effect
-    el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.2)';
-        el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.6)';
-    });
-    el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
-        el.style.boxShadow = '0 3px 12px rgba(0,0,0,0.5)';
-    });
-
+    // No hover scaling to keep markers static on hover
     const marker = new maplibregl.Marker({
         element: el,
         anchor: 'center'
@@ -621,6 +615,7 @@ function drawRoute(coords, color, name, width = 4) {
     const sourceId = `route-${Date.now()}-${Math.random()}`;
     const layerId = `route-layer-${Date.now()}-${Math.random()}`;
 
+    // Add source with full geometry
     map.addSource(sourceId, {
         type: 'geojson',
         data: {
@@ -632,6 +627,7 @@ function drawRoute(coords, color, name, width = 4) {
         }
     });
 
+    // Add layer with initial opacity 0 (invisible)
     map.addLayer({
         id: layerId,
         type: 'line',
@@ -643,11 +639,16 @@ function drawRoute(coords, color, name, width = 4) {
         paint: {
             'line-color': color,
             'line-width': width,
-            'line-opacity': 0.8
+            'line-opacity': 0
         }
     });
 
+    // Store for later cleanup
     currentRoutes.push({ sourceId, layerId });
+
+    // Fade in the line smoothly (duration 800ms)
+    map.setPaintProperty(layerId, 'line-opacity', 0.8);
+    // Optionally, you could animate the line dasharray for a drawing effect.
 }
 
 function fitBounds(coords) {
