@@ -5,6 +5,7 @@ import subprocess
 import math
 import os
 import sys
+import random
 from typing import List, Dict, Tuple, Set, Optional
 
 # Ride workflow dependencies
@@ -14,8 +15,7 @@ RIDE_WORKFLOW_DEPENDENCIES = {
     'Route': ['Assign'],
     'Fare': ['Route'],
     'Start': ['Fare'],
-    'End': ['Start'],
-    'Receipt': ['End']
+    'End': ['Start']
 }
 
 
@@ -272,14 +272,19 @@ class CityMap:
 class Driver:
     """Represents a driver in the system"""
     
-    def __init__(self, driver_id: int, current_location: int, name: str = None):
+    def __init__(self, driver_id: int, current_location: int, name: str = None, car_type: str = "Standard"):
         self.driver_id = driver_id
         self.current_location = current_location
         self.name = name or f"Driver {driver_id}"
         self.available = True
+        self.car_type = car_type
+        # Random rating between 4.5 and 5.0
+        import random
+        self.rating = round(random.uniform(4.5, 5.0), 1)
+        self.plate_number = f"LHR-{random.randint(100, 999)}"
     
     def __repr__(self):
-        return f"Driver(id={self.driver_id}, location={self.current_location}, available={self.available})"
+        return f"Driver(id={self.driver_id}, type={self.car_type}, location={self.current_location})"
 
 
 class DriverManager:
@@ -291,25 +296,31 @@ class DriverManager:
         self._initialize_drivers()
     
     def _initialize_drivers(self):
-        """Initialize some drivers at random locations"""
-        import random
-        driver_locations = [0, 1, 4, 8, 14, 16, 17, 5, 11]  # Spread drivers across city
+        """Initialize drivers with different car types at random locations"""
+        driver_locations = [0, 1, 4, 8, 14, 16, 17, 5, 11, 2, 7, 12]  # Increased limits
+        car_types = ["Standard", "Premium", "Eco", "Standard", "Premium", "Standard", "Eco", "Standard", "Premium", "Standard", "Eco", "Standard"]
+        names = ["Ali", "Bilal", "Usman", "Fahad", "Hamza", "Rizwan", "Omer", "Zain", "Ahsan", "Danish", "Saad", "Hassan"]
+        
+        # Shuffle names to ensure randomness each time
+        random.shuffle(names)
+        
         for i, location in enumerate(driver_locations):
-            driver = Driver(i + 1, location, f"Driver {i + 1}")
+            # Use modulo safely
+            c_type = car_types[i % len(car_types)]
+            d_name = names[i % len(names)]
+            driver = Driver(i + 1, location, f"{d_name}", c_type)
             self.drivers.append(driver)
     
-    def find_nearest_driver(self, pickup_location: int) -> Optional[Tuple[Driver, List[int], float]]:
+    def find_nearby_drivers(self, pickup_location: int, limit: int = 3) -> List[Tuple[Driver, List[int], float]]:
         """
-        Find nearest available driver using Dijkstra's algorithm
-        Returns: (driver, path, distance) or None
+        Find multiple nearby drivers using Dijkstra's algorithm
+        Returns: List of (driver, path, distance) sorted by distance
         """
         available_drivers = [d for d in self.drivers if d.available]
         if not available_drivers:
-            return None
+            return []
         
-        nearest_driver = None
-        shortest_distance = float('inf')
-        shortest_path = []
+        driver_results = []
         
         for driver in available_drivers:
             path, distance = GraphAlgorithms.dijkstra(
@@ -317,14 +328,17 @@ class DriverManager:
                 driver.current_location,
                 pickup_location
             )
-            if distance < shortest_distance:
-                shortest_distance = distance
-                shortest_path = path
-                nearest_driver = driver
+            if distance != float('inf'):
+                driver_results.append((driver, path, distance))
         
-        if nearest_driver:
-            return (nearest_driver, shortest_path, shortest_distance)
-        return None
+        # Sort by distance and return nearest 'limit' drivers
+        driver_results.sort(key=lambda x: x[2])
+        return driver_results[:limit]
+    
+    def find_nearest_driver(self, pickup_location: int) -> Optional[Tuple[Driver, List[int], float]]:
+        # Keep for backward compatibility if needed, using the new method
+        results = self.find_nearby_drivers(pickup_location, limit=1)
+        return results[0] if results else None
 
 
 class FareCalculator:
@@ -350,20 +364,18 @@ class RideService:
     
     def request_ride(self, pickup_node: int, dropoff_node: int) -> Dict:
         """
-        Process a ride request
-        Returns: ride information including path, driver, fare, etc.
+        Process a ride request and return multiple options
         """
-        # Find nearest driver
-        driver_info = self.driver_manager.find_nearest_driver(pickup_node)
-        if not driver_info:
+        # Find nearby drivers (up to 3)
+        nearby_drivers = self.driver_manager.find_nearby_drivers(pickup_node, limit=3)
+        
+        if not nearby_drivers:
             return {
                 'success': False,
-                'error': 'No available drivers'
+                'error': 'No available drivers nearby'
             }
-        
-        driver, driver_to_pickup_path, driver_to_pickup_distance = driver_info
-        
-        # Find route from pickup to dropoff
+            
+        # Common ride path (pickup -> dropoff)
         ride_path, ride_distance = self.graph_algorithms.dijkstra(
             self.city_map.graph,
             pickup_node,
@@ -375,49 +387,71 @@ class RideService:
                 'success': False,
                 'error': 'No path found between pickup and dropoff locations'
             }
-        
-        # Calculate total distance (driver to pickup + pickup to dropoff)
-        total_distance = driver_to_pickup_distance + ride_distance
-        
-        # Calculate fare
-        fare = self.fare_calculator.calculate_fare(ride_distance)
-        
-        # Get workflow schedule
+            
+        ride_path_coords = self.city_map.get_path_coordinates(ride_path)
         workflow = self.graph_algorithms.topological_sort(RIDE_WORKFLOW_DEPENDENCIES)
         
-        # Convert paths to coordinates
-        driver_path_coords = self.city_map.get_path_coordinates(driver_to_pickup_path)
-        ride_path_coords = self.city_map.get_path_coordinates(ride_path)
+        options = []
         
+        for driver, driver_path, driver_dist in nearby_drivers:
+            # Calculate dynamic pricing based on car type
+            rate_multiplier = 1.0
+            if driver.car_type == "Premium":
+                rate_multiplier = 1.4
+            elif driver.car_type == "Eco":
+                rate_multiplier = 0.9
+                
+            base_fare_driver = self.fare_calculator.BASE_FARE * rate_multiplier
+            per_km_driver = self.fare_calculator.PER_KM_RATE * rate_multiplier
+            
+            # Add small random variation (±5%) just for price differentiation
+            variation = random.uniform(0.95, 1.05)
+            
+            fare = (base_fare_driver + (ride_distance * per_km_driver)) * variation
+            
+            # Helper for coordinates
+            driver_path_coords = self.city_map.get_path_coordinates(driver_path)
+            
+            options.append({
+                'driver': {
+                    'id': driver.driver_id,
+                    'name': driver.name,
+                    'car_type': driver.car_type,
+                    'rating': driver.rating,
+                    'plate': driver.plate_number,
+                    'current_location': driver.current_location,
+                    'location_coords': self.city_map.get_node_coordinates(driver.current_location)
+                },
+                'driver_to_pickup': {
+                    'path': driver_path,
+                    'path_coords': driver_path_coords,
+                    'distance_km': round(driver_dist, 2),
+                    'eta_mins': round(driver_dist * 2.5) # Rough estimate 2.5 min/km
+                },
+                'fare': round(fare),
+                'total_distance_km': round(driver_dist + ride_distance, 2)
+            })
+            
         return {
             'success': True,
-            'driver': {
-                'id': driver.driver_id,
-                'name': driver.name,
-                'current_location': driver.current_location,
-                'location_coords': self.city_map.get_node_coordinates(driver.current_location)
+            'multiple_options': True,
+            'ride_details': {
+                'pickup': {
+                    'node': pickup_node,
+                    'coords': self.city_map.get_node_coordinates(pickup_node)
+                },
+                'dropoff': {
+                    'node': dropoff_node,
+                    'coords': self.city_map.get_node_coordinates(dropoff_node)
+                },
+                'ride_path': {
+                    'path': ride_path,
+                    'path_coords': ride_path_coords,
+                    'distance_km': round(ride_distance, 2)
+                },
+                'workflow': workflow
             },
-            'pickup': {
-                'node': pickup_node,
-                'coords': self.city_map.get_node_coordinates(pickup_node)
-            },
-            'dropoff': {
-                'node': dropoff_node,
-                'coords': self.city_map.get_node_coordinates(dropoff_node)
-            },
-            'driver_to_pickup': {
-                'path': driver_to_pickup_path,
-                'path_coords': driver_path_coords,
-                'distance_km': round(driver_to_pickup_distance, 2)
-            },
-            'ride_path': {
-                'path': ride_path,
-                'path_coords': ride_path_coords,
-                'distance_km': round(ride_distance, 2)
-            },
-            'total_distance_km': round(total_distance, 2),
-            'fare': round(fare, 2),
-            'workflow': workflow
+            'options': options
         }
     
     def get_mst_prim(self) -> Dict:

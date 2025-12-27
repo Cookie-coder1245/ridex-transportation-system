@@ -34,6 +34,8 @@ let selectedDropoff = null;
 let selectionMarkers = { pickup: null, dropoff: null };
 let carMarker = null;
 let animationInProgress = false;
+let candidateMarkers = [];
+let currentRideOptions = null;
 
 // Load city map data
 fetch('/api/city-map?t=' + Date.now())
@@ -125,89 +127,171 @@ function displayRideResult(result) {
         return;
     }
 
-    // Store result for confirmation
-    pendingRideResult = result;
+    // Handle multiple options (New Flow)
+    if (result.multiple_options) {
+        currentRideOptions = result;
+        displayDriverSelection(result);
+        return;
+    }
 
-    // Calculate fare breakdown
-    const baseFare = 150.0;
-    const perKmRate = 50.0;
-    const rideDistance = result.ride_path.distance_km;
-    const distanceFare = rideDistance * perKmRate;
-    const PETROL_PRICE_PER_LITRE = 263.4;
-    const LITRES_PER_KM = 0.1; // assumed consumption per km
-    const fuelCost = rideDistance * LITRES_PER_KM * PETROL_PRICE_PER_LITRE;
-    const totalFare = baseFare + distanceFare + fuelCost;
+    // Fallback for single result (Legacy)
+    pendingRideResult = result;
+    // ... (Legacy display logic omitted for brevity, we assume new flow is primary)
+}
+
+function displayDriverSelection(result) {
+    const container = document.getElementById('rideResult');
+    const options = result.options;
+
+    // Show candidates on map
+    showCandidateDrivers(options, result.ride_details);
+
+    let optionsHTML = options.map((opt, index) => `
+        <div onclick="selectDriver(${index})" class="driver-option" style="padding: 15px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: linear-gradient(to right, #ffffff, #f9fafb); box-shadow: 0 4px 6px rgba(0,0,0,0.05); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #F59E0B;"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: #FFFBEB; padding: 8px; border-radius: 50%; border: 1px solid #FCD34D;">
+                        <!-- Premium Crown/Check Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-weight: 700; font-size: 16px; color: #111827;">${opt.driver.name}</span>
+                            <span style="background: #F59E0B; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">PREMIUM</span>
+                        </div>
+                        <div style="color: #6B7280; font-size: 12px;">${opt.driver.car_type} • Best Rated</div>
+                    </div>
+                </div>
+                <div style="font-weight: 800; color: #059669; font-size: 18px;">PKR ${Math.round(opt.fare)}</div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6; font-size: 12px; color: #4B5563;">
+                <span style="display: flex; align-items: center; gap: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                    ${opt.driver.plate}
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    ${opt.driver_to_pickup.eta_mins} mins away
+                </span>
+                <span style="display: flex; align-items: center; gap: 4px; color: #F59E0B; font-weight: 600;">
+                    ★ ${opt.driver.rating}
+                </span>
+            </div>
+        </div>
+    `).join('');
 
     container.innerHTML = `
         <div class="result-box">
-            <h3>💰 Fare Calculation</h3>
-            
-            <div class="info-item">
-                <span class="info-label">🚗 Driver:</span>
-                <span class="info-value">${result.driver.name}</span>
+            <h3>🚖 Select a Driver</h3>
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">Found ${options.length} drivers nearby. Choose the best option for you.</p>
+            <div style="max-height: 400px; overflow-y: auto;">
+                ${optionsHTML}
             </div>
-            
-            <div class="info-item">
-                <span class="info-label">📍 Pickup:</span>
-                <span class="info-value">${locationNames[result.pickup.node] || 'Location ' + result.pickup.node}</span>
-            </div>
-            
-            <div class="info-item">
-                <span class="info-label">🏁 Dropoff:</span>
-                <span class="info-value">${locationNames[result.dropoff.node] || 'Location ' + result.dropoff.node}</span>
-            </div>
-            
-            <div class="info-item">
-                <span class="info-label">🛣️ Ride Distance:</span>
-                <span class="info-value">${result.ride_path.distance_km} km</span>
-            </div>
-            
-            <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
-                <div class="info-item" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
-                    <span class="info-label">Base Fare:</span>
-                    <span class="info-value">PKR ${baseFare.toFixed(2)}</span>
-                </div>
-                <div class="info-item" style="border-bottom: 1px solid #e5e7eb; padding: 8px 0;">
-                    <span class="info-label">Distance (${rideDistance.toFixed(2)} km × PKR ${perKmRate}):</span>
-                    <span class="info-value">PKR ${distanceFare.toFixed(2)}</span>
-                </div>
-                <div class="info-item" style="margin-top: 8px; padding-top: 8px; border-top: 2px solid #4F46E5;">
-                    <span class="info-label" style="font-size: 16px; font-weight: 600;">Total Fare:</span>
-                    <span class="info-value" style="font-size: 18px; color: #4F46E5; font-weight: 700;">PKR ${totalFare.toFixed(2)}</span>
-                </div>
-            </div>
-            
-            <button onclick="confirmRide()" style="margin-top: 15px; background: #4F46E5; padding: 12px; font-size: 16px; font-weight: 600;">
-                ✓ Confirm & Start Ride
-            </button>
         </div>
     `;
+
+    // Add hover effects via JS since inline css hover is hard
+    document.querySelectorAll('.driver-option').forEach(el => {
+        el.onmouseover = () => { el.style.borderColor = '#4F46E5'; el.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.15)'; };
+        el.onmouseout = () => { el.style.borderColor = '#e5e7eb'; el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)'; };
+    });
+}
+
+function showCandidateDrivers(options, rideDetails) {
+    if (typeof candidateMarkers !== 'undefined') {
+        candidateMarkers.forEach(m => m.remove());
+        candidateMarkers = [];
+    } else {
+        candidateMarkers = [];
+    }
+
+    const allCoords = [];
+    if (rideDetails) {
+        allCoords.push(rideDetails.pickup.coords, rideDetails.dropoff.coords);
+    }
+
+    options.forEach((opt, index) => {
+        const color = opt.driver.car_type === 'Premium' ? '#F59E0B' : (opt.driver.car_type === 'Eco' ? '#10B981' : '#3B82F6');
+        const marker = addMarker(opt.driver.location_coords, `${opt.driver.name} (PKR ${opt.fare})`, color, 'driver');
+
+        // Add click listener to select this driver
+        marker.getElement().addEventListener('click', () => selectDriver(index));
+
+        candidateMarkers.push(marker);
+        allCoords.push(opt.driver.location_coords);
+    });
+
+    if (allCoords.length > 0) {
+        fitBounds(allCoords);
+    }
+}
+
+function selectDriver(index) {
+    if (!currentRideOptions || !currentRideOptions.options[index]) return;
+
+    const option = currentRideOptions.options[index];
+    const details = currentRideOptions.ride_details;
+
+    // Construct the result object expected by confirmRide
+    pendingRideResult = {
+        success: true,
+        driver: option.driver,
+        pickup: details.pickup,
+        dropoff: details.dropoff,
+        driver_to_pickup: option.driver_to_pickup,
+        ride_path: details.ride_path,
+        workflow: details.workflow,
+        fare: option.fare,
+        total_distance_km: option.total_distance_km
+    };
+
+    confirmRide();
 }
 
 function confirmRide() {
     if (!pendingRideResult) return;
 
+    // Clear candidates but keep the selected path visualization which happens next
+    if (typeof candidateMarkers !== 'undefined') {
+        candidateMarkers.forEach(m => m.remove());
+        candidateMarkers = [];
+    }
+
     const container = document.getElementById('rideResult');
     container.innerHTML = `
         <div class="result-box">
             <h3>✅ Ride Confirmed</h3>
+            
+            <div class="info-item">
+                 <span class="info-label">🚖 Driver:</span>
+                 <span class="info-value"><strong>${pendingRideResult.driver.name}</strong> (${pendingRideResult.driver.car_type})</span>
+            </div>
+            
             <div id="rideStatus" style="margin-top: 15px; padding: 15px; background: #ecfdf5; border-radius: 6px; border: 1px solid #a7f3d0;">
                 <strong style="color: #059669; font-size: 16px;">Ride is starting!</strong>
                 <div style="margin-top: 8px; font-size: 14px; color: #6b7280;">
-                    Your premium ride is on the way from ${locationNames[pendingRideResult.pickup.node] || 'pickup'} to ${locationNames[pendingRideResult.dropoff.node] || 'dropoff'}
+                    Your ride is on the way from ${locationNames[pendingRideResult.pickup.node] || 'pickup'} to ${locationNames[pendingRideResult.dropoff.node] || 'dropoff'}
                 </div>
             </div>
+            
+            <div style="margin-top: 15px; font-weight: bold; color: #4F46E5; text-align: right;">
+                Fare: PKR ${pendingRideResult.fare}
+            </div>
+
             <button onclick="completeRide()" style="margin-top: 15px; background: #059669; padding: 12px;">
                 ✓ Complete Ride
             </button>
         </div>
     `;
 
-    // Display route on map and start car animation
+    // Display route on map (Static)
     displayRideOnMap(pendingRideResult);
-    // Start car animation from source to destination
-    animateCarOnRoute(pendingRideResult);
-    pendingRideResult = null;
+
+    // Animation removed as requested
+    // animateCarOnRoute(pendingRideResult);
+    // Note: We don't nullify pendingRideResult immediately so we need to be careful not to re-confirm
 }
 
 function completeRide() {
@@ -223,16 +307,20 @@ function completeRide() {
     }
 
     container.innerHTML = `
-        <div class="result-box">
-            <h3 style="color: #059669;">🎉 Ride Completed!</h3>
-            <div style="padding: 15px; background: #ecfdf5; border-radius: 6px; margin-top: 10px;">
-                <p style="color: #059669; font-weight: 600;">Thank you for using RideX!</p>
+        <div class="result-box" style="text-align: center;">
+            <div style="background: #ECFDF5; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px auto; border: 4px solid #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+            </div>
+            </div>
+            <h3 style="color: #059669; margin-bottom: 5px;">🎉 Journey Complete!</h3>
+            <div style="padding: 15px; background: #f9fafb; border-radius: 12px; margin-top: 10px; border: 1px solid #e5e7eb;">
+                <p style="color: #111827; font-weight: 600;">You've arrived in style.</p>
                 <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">
-                    Your ride has been completed successfully. We hope you enjoyed your journey!
+                    Thank you for choosing RideX Premium.
                 </p>
             </div>
-            <button onclick="location.reload()" style="margin-top: 10px;">
-                Request New Ride
+            <button onclick="location.reload()" style="margin-top: 15px; background: #059669; color: white; border-radius: 8px; padding: 12px 24px; font-weight: 600; width: 100%;">
+                Book Another Ride
             </button>
         </div>
     `;
@@ -272,13 +360,13 @@ function displayRideOnMap(result) {
     ];
     fitBounds(allCoords);
 
-    // Store result for animation
+    // Store result for animation (if needed in future)
     window.currentRideResult = result;
 
-    // Start car animation from pickup to dropoff after route is displayed
-    setTimeout(() => {
-        animateCarOnRoute(result);
-    }, 800);
+    // Animation removed as requested
+    // setTimeout(() => {
+    //    animateCarOnRoute(result);
+    // }, 800);
 }
 
 function animateCarOnRoute(result) {
@@ -293,8 +381,8 @@ function animateCarOnRoute(result) {
     // Create premium animated car marker
     const carEl = document.createElement('div');
     carEl.style.cssText = `
-        width: 56px;
-        height: 56px;
+        width: 60px;
+        height: 60px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -306,30 +394,31 @@ function animateCarOnRoute(result) {
         transition: transform 0.1s linear;
         position: relative;
     `;
-    // Add premium badge
+    // Add premium badge (Crown)
     const badge = document.createElement('div');
     badge.style.cssText = `
         position: absolute;
-        top: -5px;
-        right: -5px;
-        width: 18px;
-        height: 18px;
+        top: -6px;
+        right: -6px;
+        width: 24px;
+        height: 24px;
         background: #F59E0B;
         border: 2px solid white;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
-        font-weight: bold;
+        font-size: 12px;
         color: white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     `;
-    badge.textContent = '★';
+    badge.innerHTML = '👑'; // Crown icon
     carEl.appendChild(badge);
 
     const carIcon = document.createElement('div');
-    carIcon.innerHTML = createSVGIcon('car', '#ffffff');
-    carIcon.style.cssText = 'width: 36px; height: 36px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));';
+    // Premium Sports Car SVG
+    carIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="32" height="32"><path d="M5 11L1 17h22l-4-6H5zm-2 7h2v2h2v-2h10v2h2v-2h2v-1.5l-1.5-2.25L19 18H5l-1.5-1.75L2 18V18zM18.5 6C16 6 14.5 7.5 14.5 8H9.5c0-.5-1.5-2-4-2S3 7 3 8v3h18V8c0-1-1.5-2-2.5-2z"/></svg>`;
+    carIcon.style.cssText = 'filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));';
     carEl.appendChild(carIcon);
 
     // Start car from pickup location (source)
@@ -680,6 +769,13 @@ function clearMap() {
         currentMarkers.forEach(marker => marker.remove());
         currentMarkers = [];
     }
+
+    // Remove candidate markers
+    if (typeof candidateMarkers !== 'undefined') {
+        candidateMarkers.forEach(m => m.remove());
+        candidateMarkers = [];
+    }
+    currentRideOptions = null;
 
     // Remove car marker if exists
     if (carMarker) {
